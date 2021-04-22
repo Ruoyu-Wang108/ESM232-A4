@@ -1,0 +1,59 @@
+---
+title: "ESM232 Assignment 4"
+author: "Ruoyu Wang"
+date: "4/21/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+
+library(sensitivity)
+library(tidyverse)
+library(pse)
+library(purrr)
+
+source("almond_yield_range.R")
+
+climate <- read.table("clim.txt")
+```
+
+
+```{r sensitivity.analysis}
+Pcoeff1=-0.07
+Pcoeff2=0.0043
+
+factors = c("Pcoeff1", "Pcoeff2")
+nsets = 200
+q = c("qunif","qunif")
+q.arg = list(list(max = (1-0.2)*Pcoeff1, min = (1+0.2)*Pcoeff1),
+             list(min = (1-0.2)*Pcoeff2, max = (1+0.2)*Pcoeff2))
+
+sens.almond = LHS(model = NULL,
+                  factors = factors,
+                  N = nsets,
+                  q = q,
+                  q.arg = q.arg)
+
+sens.data = get.data(sens.almond)
+```
+
+```{r apply}
+sens.results = pmap_dfr(.l = list(Pcoeff1 = sens.data$Pcoeff1,
+                                  Pcoeff2 = sens.data$Pcoeff2),
+                        .f = almond_yield_range,
+                        clim = climate)
+```
+
+```{r pse.tell}
+sens.plot.pre <- pse::tell(sens.almond, t(as.matrix(sens.results)), res.names=c("mean.yield","sd.yield"))
+
+pse::plotscatter(sens.plot.pre, col="blue", cex=5)
+
+pse::plotprcc(sens.plot.pre)
+sens.plot.pre$prcc
+```
+
+The second coeffient contributes more than the Coefficient 1.
