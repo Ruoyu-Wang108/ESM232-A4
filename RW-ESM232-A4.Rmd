@@ -2,7 +2,9 @@
 title: "ESM232 Assignment 4"
 author: "Ruoyu Wang"
 date: "4/21/2021"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -10,37 +12,50 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE)
 
+# load packages
 library(sensitivity)
 library(tidyverse)
 library(pse)
 library(purrr)
 
+```
+
+```{r basic}
+# load function named almond_yield_range
 source("almond_yield_range.R")
 
+# load sample data
 climate <- read.table("clim.txt")
 ```
 
 
 ```{r sensitivity.analysis}
+# set the default values for Pcoeff1 and Pcoeff2
 Pcoeff1=-0.07
 Pcoeff2=0.0043
 
+# prepare statements for sensitivity analysis
 factors = c("Pcoeff1", "Pcoeff2")
 nsets = 200
 q = c("qunif","qunif")
-q.arg = list(list(max = (1-0.2)*Pcoeff1, min = (1+0.2)*Pcoeff1),
-             list(min = (1-0.2)*Pcoeff2, max = (1+0.2)*Pcoeff2))
+q.arg = list(list(max = (1-0.2)*Pcoeff1, 
+                  min = (1+0.2)*Pcoeff1),
+             list(min = (1-0.2)*Pcoeff2, 
+                  max = (1+0.2)*Pcoeff2))
 
+# build the distribution based on the statements
 sens.almond = LHS(model = NULL,
                   factors = factors,
                   N = nsets,
                   q = q,
                   q.arg = q.arg)
 
+# generate a sample dataset from LHS
 sens.data = get.data(sens.almond)
 ```
 
 ```{r apply}
+# apply the P coeff sensitivity data and the climate data to the almond yield function
 sens.results = pmap_dfr(.l = list(Pcoeff1 = sens.data$Pcoeff1,
                                   Pcoeff2 = sens.data$Pcoeff2),
                         .f = almond_yield_range,
@@ -48,12 +63,26 @@ sens.results = pmap_dfr(.l = list(Pcoeff1 = sens.data$Pcoeff1,
 ```
 
 ```{r pse.tell}
-sens.plot.pre <- pse::tell(sens.almond, t(as.matrix(sens.results)), res.names=c("mean.yield","sd.yield"))
-
-pse::plotscatter(sens.plot.pre, col="blue", cex=5)
-
-pse::plotprcc(sens.plot.pre)
-sens.plot.pre$prcc
+# connect the statements of sensitivity analysis with the results of model application
+sens.plot.pre <- pse::tell(sens.almond,
+                           t(as.matrix(sens.results)),
+                           res.names=c("mean.yield","sd.yield"))
 ```
 
-The second coeffient contributes more than the Coefficient 1.
+```{r plots}
+# make a scatter plot that shows how output change with parameter uncertainties
+pse::plotscatter(sens.plot.pre,
+                 col="#0092B9", cex=5)
+
+# A small increase in Pcoeff2 would positively influence the mean and sd of yield, 
+# while Pcoeff1 seems to have less influence.
+
+# make a plot of PRCC
+pse::plotprcc(sens.plot.pre)
+# sens.plot.pre$prcc
+
+# The partial rank correlation coefficients of Pcoeff2 are higher than those of Pcoeff1.
+```
+
+
+Based on the results from the two graphs, the coefficient related to $P^2$ contributes more to the parameter uncertainty.
